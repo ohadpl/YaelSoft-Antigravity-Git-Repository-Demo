@@ -1,0 +1,14 @@
+target/
+.mule/
+.classpath
+.project
+.settings/
+*.class
+*.log
+
+# Nested duplicate folder (Anypoint Studio artifact)
+anti-gravity-sb-landowner-sync/
+
+# OS
+.DS_Store
+Thumbs.db

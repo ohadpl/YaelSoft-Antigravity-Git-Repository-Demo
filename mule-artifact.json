@@ -1,0 +1,10 @@
+{
+    "requiredProduct": "MULE_EE",
+    "minMuleVersion": "4.11.4",
+    "javaSpecificationVersions": ["17"],
+    "secureProperties": [
+        "rainbow.password",
+        "salesforce.password",
+        "salesforce.securityToken"
+    ]
+}

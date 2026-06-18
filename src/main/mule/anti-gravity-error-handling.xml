@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+          http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+
+    <!-- ============================================================ -->
+    <!-- Global default error handler                                 -->
+    <!-- ============================================================ -->
+    <error-handler name="anti-gravity-global-error-handler" doc:id="anti-gravity-err-global-0001" doc:name="anti-gravity-global-error-handler">
+
+        <on-error-propagate type="SALESFORCE:CONNECTIVITY"
+                            doc:name="On Error Propagate - SF connectivity"
+                            doc:id="anti-gravity-err-sf-conn-0001"
+                            logException="true">
+            <logger level="ERROR"
+                    doc:name="Log SF connectivity error"
+                    doc:id="anti-gravity-err-sf-conn-log-0001"
+                    message="#['FATAL anti-gravity-sb-landowner-sync - Salesforce connectivity error - aborting run. correlationId=' ++ (correlationId default '') ++ ' error=' ++ (error.description default '')]"/>
+        </on-error-propagate>
+
+        <on-error-propagate type="ANY"
+                            doc:name="On Error Propagate - ANY"
+                            doc:id="anti-gravity-err-any-0001"
+                            logException="true">
+            <logger level="ERROR"
+                    doc:name="Log uncaught error"
+                    doc:id="anti-gravity-err-any-log-0001"
+                    message="#['FATAL anti-gravity-sb-landowner-sync - uncaught error. correlationId=' ++ (correlationId default '') ++ ' type=' ++ (error.errorType.identifier default '') ++ ' description=' ++ (error.description default '')]"/>
+        </on-error-propagate>
+
+    </error-handler>
+
+</mule>
