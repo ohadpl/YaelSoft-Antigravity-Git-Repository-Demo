@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>anti-gravity-sb-landowner-sync Project — Technical Specification</title>
+  <style>
+    body { font-family: Calibri, Arial, sans-serif; font-size: 13px; color: #222; margin: 60px 80px; line-height: 1.7; }
+    h1 { font-size: 26px; color: #1a3a5c; border-bottom: 3px solid #1a3a5c; padding-bottom: 8px; margin-bottom: 4px; }
+    h2 { font-size: 17px; color: #1a3a5c; margin-top: 32px; border-left: 4px solid #1a3a5c; padding-left: 10px; }
+    h3 { font-size: 14px; color: #333; margin-top: 20px; }
+    .meta { color: #666; font-size: 12px; margin-bottom: 32px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    th { background: #1a3a5c; color: #fff; padding: 8px 12px; text-align: left; font-size: 12px; }
+    td { border: 1px solid #ccc; padding: 8px 12px; vertical-align: top; font-size: 12px; }
+    tr:nth-child(even) td { background: #f5f7fa; }
+    code { background: #f0f0f0; border: 1px solid #ddd; border-radius: 3px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 11px; color: #c0392b; }
+    pre { background: #1e1e1e; color: #d4d4d4; border-radius: 6px; padding: 16px 20px; font-family: Consolas, monospace; font-size: 11px; overflow-x: auto; line-height: 1.5; }
+    .keyword { color: #569cd6; } .string { color: #ce9178; } .comment { color: #6a9955; } .attr { color: #9cdcfe; } .tag { color: #4ec9b0; }
+    .section-box { background: #f5f7fa; border: 1px solid #dde3ec; border-radius: 6px; padding: 16px 20px; margin-top: 12px; }
+    .flow-step { display: flex; align-items: flex-start; margin: 10px 0; }
+    .step-num { background: #1a3a5c; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0; margin-right: 12px; margin-top: 2px; }
+    ul { margin: 8px 0 8px 20px; } li { margin-bottom: 4px; }
+    .badge { display: inline-block; background: #e8f0fe; color: #1a3a5c; border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: bold; }
+    .badge-green { background: #e6f4ea; color: #1e6e34; } .badge-orange { background: #fff3e0; color: #b45309; }
+    .footer { margin-top: 60px; font-size: 11px; color: #999; border-top: 1px solid #ddd; padding-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <h1>anti-gravity-sb-landowner-sync Project — Technical Specification</h1>
+  <div class="meta">
+    Document type: Technical Specification &nbsp;|&nbsp;
+    Project: anti-gravity-sb-landowner-sync &nbsp;|&nbsp;
+    Version: 1.0.0 &nbsp;|&nbsp;
+    Date: June 2026 &nbsp;|&nbsp;
+    Platform: MuleSoft Anypoint Platform 4.6.0 &nbsp;|&nbsp;
+    <span class="badge badge-orange">Proposed Design</span> &nbsp;|&nbsp;
+    Source: Land_Owners_Requirements.pdf
+  </div>
+
+  <h2>1. Project Overview</h2>
+  <p>This integration project syncs land-rights owner records from the Rainbow system (polled via OData REST API) to the Salesforce custom object <code>LandOwner__c</code> as flat records. It runs on a nightly scheduler. All artifacts, flows, and deployments are prefixed with <code>anti-gravity-</code> to distinguish this implementation.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Metadata Property</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Maven Group ID</td>
+        <td><code>08756342ee7847158fd70786d2c83b4e</code></td>
+      </tr>
+      <tr>
+        <td>Maven Artifact ID</td>
+        <td><code>anti-gravity-sb-landowner-sync</code></td>
+      </tr>
+      <tr>
+        <td>Version</td>
+        <td><code>1.0.0</code></td>
+      </tr>
+      <tr>
+        <td>Packaging</td>
+        <td><code>mule-application</code></td>
+      </tr>
+      <tr>
+        <td>Mule Runtime</td>
+        <td>4.6.0 <span class="badge badge-orange">Proposed</span></td>
+      </tr>
+      <tr>
+        <td>Mule Maven Plugin</td>
+        <td>4.1.0 <span class="badge badge-orange">Proposed</span></td>
+      </tr>
+      <tr>
+        <td>HTTP Port</td>
+        <td><code>8081</code> (Operational/Health only)</td>
+      </tr>
+      <tr>
+        <td>Flow definition file(s)</td>
+        <td>
+          <code>anti-gravity-global-config.xml</code><br/>
+          <code>anti-gravity-error-handling.xml</code><br/>
+          <code>anti-gravity-landowner-sync.xml</code>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. Connector Dependencies</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Connector</th>
+        <th>Group ID</th>
+        <th>Version</th>
+        <th>Purpose</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>mule-http-connector</code></td>
+        <td><code>org.mule.connectors</code></td>
+        <td>1.10.6 <span class="badge badge-orange">Proposed</span></td>
+        <td>Inbound HTTP listener & outbound HTTP requests to OData API</td>
+      </tr>
+      <tr>
+        <td><code>mule-sockets-connector</code></td>
+        <td><code>org.mule.connectors</code></td>
+        <td>1.2.5 <span class="badge badge-orange">Proposed</span></td>
+        <td>Low-level socket support (runtime dependency)</td>
+      </tr>
+      <tr>
+        <td><code>mule-salesforce-connector</code></td>
+        <td><code>com.mulesoft.connectors</code></td>
+        <td>11.4.0 <span class="badge badge-orange">Proposed</span></td>
+        <td>Salesforce database upsert and deletion operations</td>
+      </tr>
+      <tr>
+        <td><code>mule-secure-configuration-property-module</code></td>
+        <td><code>com.mulesoft.modules</code></td>
+        <td>1.2.7 <span class="badge badge-orange">Proposed</span></td>
+        <td>Secure decryption of system properties</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>3. Global Configurations</h2>
+  <h3>3.1 HTTP Listener Configuration — <code>anti-gravity-http-listener-config</code></h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Value / Reference</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Host</td>
+        <td><code>0.0.0.0</code></td>
+      </tr>
+      <tr>
+        <td>Port</td>
+        <td><code>${http.port}</code> (default 8081)</td>
+      </tr>
+      <tr>
+        <td>doc:id</td>
+        <td><code>c389478f-64d8-4ba8-9b88-51f7871b6910</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>3.2 HTTP Request Configuration (Rainbow Analytics API) — <code>anti-gravity-rainbow-analytics-request-config</code></h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Value / Reference</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Protocol</td>
+        <td><code>HTTPS</code></td>
+      </tr>
+      <tr>
+        <td>Host</td>
+        <td><code>${rainbow.analytics.host}</code></td>
+      </tr>
+      <tr>
+        <td>Port</td>
+        <td><code>443</code></td>
+      </tr>
+      <tr>
+        <td>Connection Timeout</td>
+        <td><code>${rainbow.timeout.ms}</code> (30000ms)</td>
+      </tr>
+      <tr>
+        <td>Authentication</td>
+        <td>Basic Authentication (Username: <code>${rainbow.username}</code>, Password: <code>${secure::rainbow.password}</code>)</td>
+      </tr>
+      <tr>
+        <td>doc:id</td>
+        <td><code>b37c093c-28df-419b-a3d8-55452d0a1b9c</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>3.3 HTTP Request Configuration (Rainbow Operation API) — <code>anti-gravity-rainbow-operation-request-config</code></h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Value / Reference</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Protocol</td>
+        <td><code>HTTPS</code></td>
+      </tr>
+      <tr>
+        <td>Host</td>
+        <td><code>${rainbow.operation.host}</code></td>
+      </tr>
+      <tr>
+        <td>Port</td>
+        <td><code>443</code></td>
+      </tr>
+      <tr>
+        <td>Connection Timeout</td>
+        <td><code>${rainbow.timeout.ms}</code> (30000ms)</td>
+      </tr>
+      <tr>
+        <td>Authentication</td>
+        <td>Basic Authentication (Username: <code>${rainbow.username}</code>, Password: <code>${secure::rainbow.password}</code>)</td>
+      </tr>
+      <tr>
+        <td>doc:id</td>
+        <td><code>a5ef4811-92df-422f-8da7-111122223333</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>3.4 Salesforce Configuration — <code>anti-gravity-salesforce-config</code></h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Value / Reference</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Auth Type</td>
+        <td>Basic (Username/Password)</td>
+      </tr>
+      <tr>
+        <td>Username</td>
+        <td><code>${salesforce.username}</code></td>
+      </tr>
+      <tr>
+        <td>Password</td>
+        <td><code>${secure::salesforce.password}</code></td>
+      </tr>
+      <tr>
+        <td>Security Token</td>
+        <td><code>${secure::salesforce.securityToken}</code></td>
+      </tr>
+      <tr>
+        <td>doc:id</td>
+        <td><code>d7cf12a4-44df-41ef-ba38-1234567890ab</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>3.5 Configuration Properties — File Declarations</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>File Path</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>config.yaml</code></td>
+        <td>Non-secure configurations (Hosts, Ports, Cron schedules)</td>
+      </tr>
+      <tr>
+        <td><code>secure-config.yaml</code></td>
+        <td>Secure encrypted credentials, decrypted using system key <code>secure.key</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. Flows</h2>
+  
+  <h3>4.1 Flow: <code>anti-gravity-landowner-sync-scheduler-flow</code></h3>
+  <p><span class="badge">doc:id: 887ac0c2-55ef-4560-8438-fa12c3b4d5e1</span></p>
+  
+  <strong>Scheduler Trigger:</strong>
+  <table>
+    <thead>
+      <tr>
+        <th>Trigger</th>
+        <th>Expression / Interval</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Scheduler</td>
+        <td><code>${sync.cron}</code> (default <code>0 0 2 * * ?</code>)</td>
+        <td>Runs nightly at 02:00 AM Asia/Jerusalem timezone</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <strong>Processing Steps:</strong>
+  <div class="flow-step">
+    <div class="step-num">1</div>
+    <div><strong>Log START</strong> — Logs <code>anti-gravity-sb-landowner-sync - anti-gravity-landowner-sync-scheduler-flow - START</code>.</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">2</div>
+    <div><strong>Call Delete Sub-flow</strong> — Executes <code>anti-gravity-delete-stale-landowners-subflow</code> to remove outdated records before downloading new records.</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">3</div>
+    <div><strong>Call Fetch Registrations Sub-flow</strong> — Executes <code>anti-gravity-fetch-registrations-subflow</code> to retrieve all current properties.</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">4</div>
+    <div><strong>ForEach Registration</strong> — Loops over each retrieved active property registration.
+      <ul>
+        <li>Calls <code>anti-gravity-build-landowners-for-registration-subflow</code> to fetch owners and map them.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">5</div>
+    <div><strong>Choice: Empties Guard</strong> — Evaluates if landowners list is empty.
+      <ul>
+        <li>If NOT empty: Calls <code>anti-gravity-upsert-landowners-subflow</code>.</li>
+        <li>If empty: Logs a warning and skips upsert.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">6</div>
+    <div><strong>Log END</strong> — Logs <code>anti-gravity-sb-landowner-sync - anti-gravity-landowner-sync-scheduler-flow - END</code>.</div>
+  </div>
+
+  <h3>4.2 Sub-flow: <code>anti-gravity-delete-stale-landowners-subflow</code></h3>
+  <p><span class="badge">doc:id: b3df18aa-f17a-42a9-9134-8c88722ba3e1</span></p>
+  <p><strong>Description:</strong> Finds and deletes Salesforce landowner records whose <code>ToDate__c</code> is in the past, except those manually assigned to a lawyer.</p>
+  
+  <strong>Processing Steps:</strong>
+  <div class="flow-step">
+    <div class="step-num">1</div>
+    <div><strong>Salesforce Query</strong> — Run query: <code>SELECT Id FROM LandOwner__c WHERE ToDate__c < TODAY AND Lawyer__c = null</code>.</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">2</div>
+    <div><strong>Choice: Empty Check</strong> — If records are found:
+      <ul>
+        <li>Deletes the records from Salesforce by ID in chunks.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>4.3 Sub-flow: <code>anti-gravity-fetch-registrations-subflow</code></h3>
+  <p><span class="badge">doc:id: 9d784a9e-f823-44ca-8ba2-c2834bfa12de</span></p>
+  <p><strong>Description:</strong> Queries the OData endpoint to fetch current active registrations, supporting next-link pagination.</p>
+  
+  <strong>Processing Steps:</strong>
+  <div class="flow-step">
+    <div class="step-num">1</div>
+    <div><strong>HTTP GET Registrations</strong> — Calls <code>GET /registrations</code> with query parameters: <code>$filter=isCurrentRegistration eq true</code>.</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">2</div>
+    <div><strong>Loop / Paging Process</strong> — Check for <code>@odata.nextLink</code>. Recursively pulls next pages if available and concatenates items.</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">3</div>
+    <div><strong>Transform Data</strong> — Maps registrations payload using <code>anti-gravity-map-registrations.dwl</code> into a list of simplified registration objects.</div>
+  </div>
+
+  <h3>4.4 Sub-flow: <code>anti-gravity-build-landowners-for-registration-subflow</code></h3>
+  <p><span class="badge">doc:id: 8bfa9321-df10-41ab-8e01-12c83ba01de3</span></p>
+  <p><strong>Description:</strong> Fetches owner properties and their associated business partner cards, building flat landowner models.</p>
+  
+  <strong>Processing Steps:</strong>
+  <div class="flow-step">
+    <div class="step-num">1</div>
+    <div><strong>HTTP GET Owners</strong> — Calls <code>GET /owners</code> with query parameters: <code>$filter=toDate eq null and registrationKey eq [registration.key]</code>.</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">2</div>
+    <div><strong>Choice: Has Owners?</strong> — If owners are found:
+      <ul>
+        <li>Loops through each owner.</li>
+        <li>Calls <code>GET /businessPartners</code> with query parameters: <code>$filter=id eq [owner.businessPartnerId]</code>.</li>
+        <li>Maps owner, registration, and partner details into the flat Salesforce structure using <code>anti-gravity-build-landowner.dwl</code>.</li>
+        <li>Executes <code>anti-gravity-add-building-lookup.dwl</code> to attach building reference if <code>buildingCode</code> is present.</li>
+        <li>Accumulates the results in a session variable.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>4.5 Sub-flow: <code>anti-gravity-upsert-landowners-subflow</code></h3>
+  <p><span class="badge">doc:id: f092df44-12af-4dfd-9b1b-aa11b22cc33d</span></p>
+  <p><strong>Description:</strong> Performs bulk upserts of accumulated landowner data to Salesforce.</p>
+  
+  <strong>Processing Steps:</strong>
+  <div class="flow-step">
+    <div class="step-num">1</div>
+    <div><strong>Batch Chunking</strong> — Splits the landowner list into chunks based on <code>${salesforce.batchSize}</code> (default 200).</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">2</div>
+    <div><strong>Salesforce Upsert</strong> — Calls Upsert on <code>LandOwner__c</code> using external key <code>External_Key__c</code>.</div>
+  </div>
+  <div class="flow-step">
+    <div class="step-num">3</div>
+    <div><strong>Process Results</strong> — Loops through upsert results. Logs errors for any single item failure, reporting the associated <code>External_Key__c</code>.</div>
+  </div>
+
+  <h3>4.6 Flow: <code>anti-gravity-health-flow</code></h3>
+  <p><span class="badge">doc:id: a23fa990-21af-42e3-8da9-a2a3bcbfdecc</span></p>
+  
+  <strong>HTTP Trigger:</strong>
+  <table>
+    <thead>
+      <tr>
+        <th>Method</th>
+        <th>Path</th>
+        <th>Port</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>GET</td>
+        <td><code>/health</code></td>
+        <td><code>${http.port}</code> (8081)</td>
+        <td>Basic application health status check</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <strong>Processing Steps:</strong>
+  <div class="flow-step">
+    <div class="step-num">1</div>
+    <div><strong>Set Payload</strong> — Sets response body to <code>"OK"</code>.</div>
+  </div>
+  
+  <strong>Response:</strong>
+  <table>
+    <thead>
+      <tr>
+        <th>HTTP Status</th>
+        <th>Content-Type</th>
+        <th>Expected Response Body</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>200</td>
+        <td><code>text/plain</code></td>
+        <td><code>OK</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>5. Configuration Properties</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Property Key</th>
+        <th>Default / Placeholder</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>http.port</code></td>
+        <td><code>8081</code></td>
+        <td>Operational endpoints API HTTP port</td>
+      </tr>
+      <tr>
+        <td><code>sync.cron</code></td>
+        <td><code>0 0 2 * * ?</code></td>
+        <td>Cron expression for nightly sync triggers</td>
+      </tr>
+      <tr>
+        <td><code>rainbow.analytics.host</code></td>
+        <td><code>ziv-rainbow.net</code></td>
+        <td>Rainbow OData Analytics endpoint host name</td>
+      </tr>
+      <tr>
+        <td><code>rainbow.operation.host</code></td>
+        <td><code>ziv-rainbow.net</code></td>
+        <td>Rainbow OData Operational endpoint host name</td>
+      </tr>
+      <tr>
+        <td><code>rainbow.timeout.ms</code></td>
+        <td><code>30000</code></td>
+        <td>Rainbow HTTP request connection and read timeout limit</td>
+      </tr>
+      <tr>
+        <td><code>rainbow.username</code></td>
+        <td><code>CHANGE_ME</code></td>
+        <td>Username for OData API access *(replace before running)*</td>
+      </tr>
+      <tr>
+        <td><code>rainbow.password</code></td>
+        <td><code>CHANGE_ME</code></td>
+        <td>Secure password for OData API access *(replace before running)*</td>
+      </tr>
+      <tr>
+        <td><code>salesforce.username</code></td>
+        <td><code>CHANGE_ME</code></td>
+        <td>Salesforce connection username *(replace before running)*</td>
+      </tr>
+      <tr>
+        <td><code>salesforce.password</code></td>
+        <td><code>CHANGE_ME</code></td>
+        <td>Secure Salesforce connection password *(replace before running)*</td>
+      </tr>
+      <tr>
+        <td><code>salesforce.securityToken</code></td>
+        <td><code>CHANGE_ME</code></td>
+        <td>Secure Salesforce API access token *(replace before running)*</td>
+      </tr>
+      <tr>
+        <td><code>salesforce.apiVersion</code></td>
+        <td><code>59.0</code></td>
+        <td>Target Salesforce SOAP/REST API Version</td>
+      </tr>
+      <tr>
+        <td><code>salesforce.batchSize</code></td>
+        <td><code>200</code></td>
+        <td>Batch size chunk limit for Salesforce Bulk/Soap Upsert</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>6. Error Handling Strategy</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Error Type</th>
+        <th>HTTP Status</th>
+        <th>Response Format / Behavior</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>HTTP:CONNECTIVITY</code>, <code>HTTP:TIMEOUT</code> (Rainbow)</td>
+        <td>N/A</td>
+        <td>On Error Continue. Retry 3 times with backoff, log failed registration, continue processing remaining registrations.</td>
+      </tr>
+      <tr>
+        <td><code>SALESFORCE:CONNECTIVITY</code></td>
+        <td>N/A</td>
+        <td>On Error Propagate. Terminate scheduler flow execution, log critical ERROR, alert system admins.</td>
+      </tr>
+      <tr>
+        <td><code>SALESFORCE:INVALID_FIELD</code>, record errors</td>
+        <td>N/A</td>
+        <td>On Error Continue (upsert). Log failing record <code>External_Key__c</code>, proceed with rest of the batch.</td>
+      </tr>
+      <tr>
+        <td><code>ANY</code></td>
+        <td>500 (HTTP) / N/A (Scheduler)</td>
+        <td>Global default handler: Log full error track with transaction correlation ID.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>7. Logging Convention</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Event</th>
+        <th>Level</th>
+        <th>Message Pattern</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Flow Start</td>
+        <td>INFO</td>
+        <td><code>anti-gravity-sb-landowner-sync - [Flow Name] - START</code></td>
+      </tr>
+      <tr>
+        <td>OData Pull Success</td>
+        <td>INFO</td>
+        <td><code>anti-gravity-sb-landowner-sync - Fetch registrations - Count: [records count]</code></td>
+      </tr>
+      <tr>
+        <td>Salesforce Upsert Fail</td>
+        <td>ERROR</td>
+        <td><code>anti-gravity-sb-landowner-sync - Salesforce Upsert failed for External Key: [key]</code></td>
+      </tr>
+      <tr>
+        <td>Flow End</td>
+        <td>INFO</td>
+        <td><code>anti-gravity-sb-landowner-sync - [Flow Name] - END</code></td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Logging uses a rolling file appender target writing to <code>logs/anti-gravity-sb-landowner-sync.log</code>, configured to limit files to 10 MB with 10 max backup archives.</p>
+
+  <h2>8. External API Reference</h2>
+  <h3>8.1 Rainbow OData API</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Base URL</th>
+        <th>Method & Path</th>
+        <th>Key Parameters</th>
+        <th>Usage</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>https://ziv-rainbow.net/api/analytics/odata</code></td>
+        <td><code>GET /registrations</code></td>
+        <td><code>$filter=isCurrentRegistration eq true</code></td>
+        <td>Fetch properties containing rights details</td>
+      </tr>
+      <tr>
+        <td><code>https://ziv-rainbow.net/api/analytics/odata</code></td>
+        <td><code>GET /owners</code></td>
+        <td><code>$filter=toDate eq null and registrationKey eq [key]</code></td>
+        <td>Fetch owners of specific properties</td>
+      </tr>
+      <tr>
+        <td><code>https://ziv-rainbow.net/api/operation/odata</code></td>
+        <td><code>GET /businessPartners</code></td>
+        <td><code>$filter=id eq [id]</code></td>
+        <td>Retrieve legal identity card fields for partners</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>9. Data Transformation Detail</h2>
+  <div class="section-box">
+    <strong>Purpose:</strong> Maps registrations, owners, and business partner cards into flat Salesforce records.<br/><br/>
+    <strong>DataWeave (build-landowner):</strong>
+    <pre>
+%dw 2.0
+output application/java
+---
+payload map (item) -> {
+    Name: item.businessPartnerName[0..79],
+    Idtype__c: item.idType,
+    IdNumber__C: item.legalIdNumber,
+    Address__c: item.address,
+    Essence__c: item.rightType,
+    OwnershipPercent__c: item.ownershipPercent,
+    External_Key__c: item.ownerId as String,
+    Project__r: {
+        Project_Code__c: item.projectCode
+    },
+    (if (item.buildingCode != null) {
+        Building__r: {
+            BuildingCode__c: item.buildingCode
+        }
+    } else {}),
+    Plot__c: item.plot,
+    ToDate__c: item.toDate
+}</pre>
+  </div>
+
+  <h2>10. Build & Run</h2>
+  <pre><span class="comment"># Build</span>
+mvn clean package
+
+<span class="comment"># Build without tests</span>
+mvn clean package -DskipTests
+
+<span class="comment"># Deploy to local Mule runtime</span>
+mvn clean package -DmuleDeploy</pre>
+
+  <h2>11. Sample Request & Response</h2>
+  <h3>11.1 GET /health</h3>
+  <strong>Request:</strong>
+  <pre>GET http://localhost:8081/health</pre>
+  <strong>Response Status:</strong> <code>200 OK</code>
+  <br/>
+  <strong>Response Body:</strong>
+  <pre>OK</pre>
+
+  <h2>12. Design Assumptions & Open Questions</h2>
+  <div class="section-box">
+    <strong>Design Assumptions:</strong>
+    <table>
+      <thead>
+        <th>Assumption</th>
+        <th>Rationale</th>
+        <th>Impact if wrong</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Mule Runtime 4.6.0</td>
+          <td>Modern, long-term supported Java 17 release</td>
+          <td>Compatibility issues with older runtimes if user runs 4.4.x</td>
+        </tr>
+        <tr>
+          <td>Salesforce API v59.0</td>
+          <td>Stable version that supports upserting related external ID Lookups natively</td>
+          <td>Need to rewrite relationship maps if version is too old</td>
+        </tr>
+        <tr>
+          <td>Basic Authentication for Rainbow API</td>
+          <td>Direct credentials indicated in connection properties</td>
+          <td>Auth failures if Rainbow enforces OAuth or token exchanges</td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <br/>
+    <strong>Open Questions:</strong>
+    <table>
+      <thead>
+        <th>Question</th>
+        <th>Why it matters</th>
+        <th>Suggested Default</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Rainbow OData API Rate Limiting</td>
+          <td>Paging registrations recursively could hit threshold caps</td>
+          <td>Assume no strict API rate limits for nightly sync runs</td>
+        </tr>
+        <tr>
+          <td>Building code lookup behavior</td>
+          <td>Confirm if building code values always match Salesforce master Building table exactly</td>
+          <td>Assume codes match, otherwise upserts fail with lookup exceptions</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    anti-gravity-sb-landowner-sync &nbsp;|&nbsp; Technical Specification v1.0.0 &nbsp;|&nbsp; MuleSoft Anypoint Platform 4.6.0 &nbsp;|&nbsp; June 2026
+  </div>
+
+</body>
+</html>
